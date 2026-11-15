@@ -1,0 +1,28 @@
+{
+  "name": "pixelart-gaussiansplat",
+  "version": "0.1.0",
+  "description": "Pixel-art Gaussian splats in the browser: scenes written in code, converted 3D models, and the tools to make your own.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "scene": "node tools/build-scene.mjs",
+    "convert": "node tools/convert-model.mjs",
+    "island": "node tools/build-island.mjs"
+  },
+  "dependencies": {
+    "@sparkjsdev/spark": "^2.4.0",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
+    "draco3dgltf": "^1.5.9",
+    "meshoptimizer": "^1.3.0",
+    "sharp": "^0.35.5",
+    "vite": "^8.3.8"
+  }
+}
