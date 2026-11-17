@@ -124,7 +124,7 @@ const paint = (m, x, y, z, n) => {
 };
 ```
 
-`paint` is called once per surfel and returns its colour before lighting. `n` is the surface normal, so `n[1] > 0.7` means "facing up". `emissive: true` skips lighting.
+`paint` is called once per surfel and returns its colour before lighting. `n` is the surface normal, so `n[1] > 0.7` means "facing up". `emissive: true` skips lighting. `leaf: true` lets light through, for foliage. The build bakes sun, shadows and lamps into every surfel, which takes 2 to 35 seconds per scene.
 
 Then the palette:
 
@@ -135,11 +135,12 @@ background: "#0a0a18",
 
 Some habits that help:
 
-- **Paint with palette colours.** Lighting will darken and brighten them; dithering fills in between.
+- **Paint with palette colours.** Lighting will darken and brighten them, and every lit colour snaps to a palette entry in the same hue, so give each material a few shades. Greys and whites shade into the palette's cool greys.
+- **Sun shafts and glow colours.** `shafts(rnd, [{ to, r, len }], { colors })` from `scene-kit.js` returns a particle entry with beams of light along the sun's direction. `glowPalette: [...]` adds colours that only translucent light may use (the shrine adds a muted brown and a khaki for its beams), so they never colour a surface.
 - **Give each material two or three steps** in the palette: a shadow, a mid tone, a highlight. A red gate needs a dark red, or its shaded side snaps to brown.
 - **Keep it small.** 12 to 16 colours. The background colour must be in the list.
 - **Stay near the palette.** A colour far from every palette entry snaps to something unexpected.
 
 ## Looking at the result
 
-Useful while tuning, as URL options: `&quant=0` shows the scene without the palette, `&dither=0` without dithering, `&px=2` at a finer grid, `&light=1.3` brighter.
+Useful while tuning, as URL options: `&quant=0` shows the scene without the palette, `&dither=0.5` with dithering, `&ss=0&outline=0` without supersampling and outlines, `&px=2` at a finer grid, `&light=1.3` brighter.

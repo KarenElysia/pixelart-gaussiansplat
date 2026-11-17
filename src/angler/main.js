@@ -12,7 +12,7 @@ import { SparkRenderer, SplatMesh, dyno } from "@sparkjsdev/spark";
 import { buildAngler, poseAngler, H } from "./model.js";
 import { hexToRgb, mulberry32 } from "../noise.js";
 import { createPost } from "../render/post.js";
-import { createHud, commonControls, showLoading, defaultPixel, portraitFit } from "../render/hud.js";
+import { createHud, commonControls, showLoading, defaultPixel, portraitFit, viewportSize } from "../render/hud.js";
 
 THREE.ColorManagement.enabled = false;
 
@@ -23,7 +23,7 @@ const BG = "#04080f";
 
 const params = new URLSearchParams(location.search);
 const dpr = Math.min(window.devicePixelRatio || 1, 2);
-const state = { pixel: Number(params.get("px")) || 0, quant: params.get("quant") !== "0", dither: 0, idle: true, crisp: true };
+const state = { pixel: Number(params.get("px")) || 0, quant: params.get("quant") !== "0", dither: 0, idle: true, crisp: true, ss: params.get("ss") === "0" ? 1 : 2, outline: params.get("outline") !== "0" };
 let hud;
 
 // ---------------------------------------------------------------- renderer
@@ -51,6 +51,7 @@ const rt = new THREE.WebGLRenderTarget(1, 1, { minFilter: THREE.NearestFilter, m
 const post = createPost();
 post.setPalette([...TEAL, ...WARM, ...MIX]);
 post.setBackground(BG);
+post.setOutline(state.outline);
 
 // ---------------------------------------------------------------- shading
 const uTime = dyno.dynoFloat(0);
@@ -259,15 +260,15 @@ function build() {
 
 // ---------------------------------------------------------------- sizing/UI
 function resize() {
-  const w = window.innerWidth, h = window.innerHeight;
+  const { w, h } = viewportSize();
   renderer.setSize(w, h);
   const px = state.pixel || defaultPixel();
   state.pixelUsed = px;
   const lw = Math.max(1, Math.round(w / px)), lh = Math.max(1, Math.round(h / px));
-  rt.setSize(lw, lh);
+  rt.setSize(lw * state.ss, lh * state.ss);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  post.setSizes(lw, lh, px * dpr);
+  post.setSizes(lw, lh, px * dpr, state.ss);
 }
 window.addEventListener("resize", resize);
 

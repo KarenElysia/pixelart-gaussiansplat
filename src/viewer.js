@@ -3,14 +3,15 @@
 //   /?m=<model>    a converted model, on its island if it has one
 //
 // Options: px (pixel size), dither (0–1), light, colors, bands, anim, elev, fit,
-//          quant=0 (no palette), crisp=0 (soft Gaussians), island=0, capture=1
+//          quant=0 (no palette), crisp=0 (soft Gaussians), island=0, capture=1,
+//          ss=0 (no 2×2 supersampling), outline=0 (no darker silhouette pixels)
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { SparkRenderer } from "@sparkjsdev/spark";
 import { createPost } from "./render/post.js";
 import { uniforms, setLights } from "./render/shade.js";
-import { createHud, commonControls, applyCrisp, showLoading, defaultPixel, portraitFit } from "./render/hud.js";
+import { createHud, commonControls, applyCrisp, showLoading, defaultPixel, portraitFit, viewportSize } from "./render/hud.js";
 import { loadModel } from "./viewer/model.js";
 import { loadRig } from "./viewer/rig.js";
 import { loadWorld } from "./viewer/world.js";
@@ -32,6 +33,8 @@ const state = {
   quant: params.get("quant") !== "0",
   crisp: params.get("crisp") !== "0",
   colors: num("colors", 28),
+  ss: params.get("ss") === "0" ? 1 : 2,
+  outline: params.get("outline") !== "0",
   idle: true, // camera orbits by itself until you drag
 };
 
@@ -49,6 +52,7 @@ const lowRes = new THREE.WebGLRenderTarget(1, 1, { minFilter: THREE.NearestFilte
 const post = createPost();
 post.setBackground(BACKGROUND);
 applyCrisp(spark, post, state.crisp);
+post.setOutline(state.outline);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -58,14 +62,14 @@ let hud;
 controls.addEventListener("start", () => { state.idle = false; hud?.set("orbit", false); });
 
 function resize() {
-  const w = window.innerWidth, h = window.innerHeight;
+  const { w, h } = viewportSize();
   renderer.setSize(w, h);
   const px = (state.pixelUsed = state.pixel || defaultPixel());
   const lw = Math.max(1, Math.round(w / px)), lh = Math.max(1, Math.round(h / px));
-  lowRes.setSize(lw, lh);
+  lowRes.setSize(lw * state.ss, lh * state.ss);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  post.setSizes(lw, lh, px * dpr);
+  post.setSizes(lw, lh, px * dpr, state.ss);
 }
 window.addEventListener("resize", resize);
 resize();
@@ -102,25 +106,26 @@ async function load() {
   controls.target.copy(target);
   radius = Math.max(meta.R * (SCENE ? 1.12 : 1.3), (high - low) / 2) * 1.03;
   if (SCENE) {
-    // a scene brings its own palette and wants its gradients dithered
+    // a scene brings its own palette (and may ask for dithering)
     post.setBackground(meta.background);
     uniforms.worldExposure.value = num("light", meta.light ?? 1);
     uniforms.bands.value = num("bands", 0);
-    if (!params.has("dither")) state.dither = meta.dither ?? 0.9;
+    if (!params.has("dither")) state.dither = meta.dither ?? 0;
     if (!state.pixel) { state.pixel = Math.max(2, defaultPixel() - 1); resize(); }
   }
 }
 
+// colours for surfaces, and colours only translucent light may use (beams, glows)
 function palette() {
-  if (world?.meta.palette) return world.meta.palette;
+  if (world?.meta.palette) return [world.meta.palette, world.meta.glowPalette || []];
   const lit = world?.lights[0]?.color;
-  return [
+  return [[
     BACKGROUND,
     ...(world ? world.particleColors : []),
     ...extractPalette(model.rgba, model.count, state.colors, uniforms.exposure.value, lit),
     // the island gets its own small budget, so it never takes colours from the model
     ...(world ? extractPalette(world.rgba, world.meta.count, 10, 1, lit) : []),
-  ];
+  ], []];
 }
 
 // ---- frame -----------------------------------------------------------------
@@ -165,10 +170,10 @@ try {
   throw e;
 }
 loading();
-post.setPalette(palette());
+post.setPalette(...palette());
 
 const common = commonControls({ state, post, spark, resize, canvas: renderer.domElement });
-const repalette = () => post.setPalette(palette());
+const repalette = () => post.setPalette(...palette());
 hud = createHud({
   current: id,
   controls: SCENE ? [

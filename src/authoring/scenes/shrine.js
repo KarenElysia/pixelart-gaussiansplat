@@ -3,7 +3,7 @@
 import { sphere, ellipsoid, cone, displace, box, cyl } from "../sdf.js";
 import { vnoise3 } from "../../noise.js";
 import { makeCtx, island, rocks, deadTree, rgb, mul, mix, sstep, TAU } from "../island.js";
-import { makeFree, stoneLantern, quatFromTo, norm, KIND, UP } from "../scene-kit.js";
+import { makeFree, stoneLantern, shafts, quatFromTo, norm, KIND, UP } from "../scene-kit.js";
 
 export const label = "Autumn shrine";
 
@@ -77,9 +77,9 @@ export function build(rnd) {
     if (m === M.gate) return { c: rgb("#c8372d") };
     if (m === M.roof) return { c: rgb("#2b2740") };
     if (m === M.dark || m === M.metal) return { c: rgb("#2b2740") };
-    if (m === M.leafA) return { c: vnoise3(x * 14, y * 14, z * 14) > 0.6 ? rgb("#ffcf5a") : rgb("#f08a2a") };
-    if (m === M.leafB) return { c: vnoise3(x * 14, y * 14, z * 14) > 0.55 ? rgb("#f08a2a") : rgb("#c8372d") };
-    if (m === M.leafC) return { c: vnoise3(x * 14, y * 14, z * 14) > 0.5 ? rgb("#fff1c0") : rgb("#ffcf5a") };
+    if (m === M.leafA) return { c: vnoise3(x * 14, y * 14, z * 14) > 0.6 ? rgb("#ffcf5a") : rgb("#f08a2a"), leaf: true };
+    if (m === M.leafB) return { c: vnoise3(x * 14, y * 14, z * 14) > 0.55 ? rgb("#f08a2a") : rgb("#c8372d"), leaf: true };
+    if (m === M.leafC) return { c: vnoise3(x * 14, y * 14, z * 14) > 0.5 ? rgb("#fff1c0") : rgb("#ffcf5a"), leaf: true };
     if (m === M.wood) return { c: mul(rgb("#4a2a26"), 0.85 + 0.35 * vnoise3(x * 30, y * 5, z * 30)) };
     if (m === M.bamboo) return { c: Math.abs(Math.sin(y * 14)) < 0.1 ? rgb("#1f4a38") : rgb("#4f9a4a") };
     if (m === M.under) { const band = Math.floor(y * 9 + 2 * vnoise3(x * 3, 0, z * 3)) & 1; return { c: mul(rgb("#2b2740"), band ? 0.85 : 1.25) }; }
@@ -95,10 +95,12 @@ export function build(rnd) {
   };
   return { c, paint, lights, free: free.list,
     palette: ["#0a0a18", "#17152c", "#2b2740", "#4c4a60", "#807e92", "#b9b6c0", "#c8372d", "#7a1f2c", "#f08a2a", "#ffcf5a", "#4a2a26", "#1f4a38", "#4f9a4a", "#a8d860", "#fff1c0"],
+    glowPalette: ["#4e3f3a", "#8a7356"], // muted warm light, only for beams and glows
     background: "#0a0a18", light: 1.0, elev: 0.3,
     particles: [
       { mode: "leaf", n: 80, colors: ["#f08a2a", "#c8372d", "#ffcf5a"], center: [0.7, 0, -0.4], spread: [1.3, 2.0, 1.3] },
       { mode: "blink", n: 22, halo: true, colors: ["#ffcf5a", "#fff1c0"], center: [-0.3, 0.4, 0.6], spread: [1.3, 0.35, 1.0] },
       { mode: "smoke", origins: smoke, n: 9, colors: ["#b9b6c0", "#807e92"], height: 0.9 },
+      shafts(rnd, [{ to: [-0.3, 0.25, -0.3], r: 0.12, len: 2.8 }, { to: [0.25, 0.25, -0.6], r: 0.09, len: 2.8 }, { to: [-0.6, 0.08, 0.35], r: 0.1, len: 2.6 }, { to: [0.55, 0.1, 0.5], r: 0.08, len: 2.6 }], { colors: ["#fff1c0", "#ffcf5a"], alpha: 0.32, n: 18 }),
     ] };
 }

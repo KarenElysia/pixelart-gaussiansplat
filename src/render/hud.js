@@ -4,9 +4,10 @@
 const CSS = `
 html, body { margin: 0; height: 100%; background: #05060a; overflow: hidden; }
 canvas { display: block; width: 100vw; height: 100vh; height: 100dvh; touch-action: none; }
+.with-chrome canvas { position: fixed; left: 0; top: var(--head-h); }
 .hud {
   --fg: #c9cde0; --dim: #6b7190; --line: #23263a; --bg: #0b0d14; --acc: #ffc874;
-  position: fixed; top: 12px; left: 12px; width: 236px; max-height: calc(100vh - 24px);
+  position: fixed; top: calc(var(--head-h, 0px) + 12px); left: 12px; width: 236px; max-height: calc(100vh - var(--head-h, 0px) - var(--foot-h, 0px) - 24px);
   display: flex; flex-direction: column; box-sizing: border-box;
   background: var(--bg); border: 1px solid var(--line); color: var(--fg);
   font: 12px/1.35 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -52,8 +53,36 @@ canvas { display: block; width: 100vw; height: 100vh; height: 100dvh; touch-acti
 .hud-btn input { display: none; }
 .hud-stats { padding: 8px 12px; color: var(--dim); border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
 .hud.folded .hud-stats { display: none; }
-.hud-hint { position: fixed; right: 14px; bottom: 12px; color: #4b5068; font: 11px ui-monospace, Menlo, monospace; pointer-events: none; }
+.hud-hint { position: fixed; right: 14px; bottom: calc(var(--foot-h, 0px) + 12px); color: #4b5068; font: 11px ui-monospace, Menlo, monospace; pointer-events: none; }
 .hud-load { position: fixed; inset: 0; display: grid; place-items: center; color: #6b7190; font: 12px ui-monospace, Menlo, monospace; pointer-events: none; }
+/* site chrome: header and footer, in the style of the other cobanov.dev sites */
+.with-chrome { --head-h: 48px; --foot-h: 38px; }
+.site-head, .site-foot {
+  position: fixed; left: 0; right: 0; z-index: 5; display: flex; align-items: center; gap: 18px; box-sizing: border-box;
+  padding: 0 14px 0 12px; background: rgba(7, 8, 13, 0.88); color: #c9cde0;
+  font: 12px/1.35 ui-monospace, "SF Mono", Menlo, Consolas, monospace; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.site-head { top: 0; height: var(--head-h); border-bottom: 1px solid #23263a; }
+.site-foot { bottom: 0; height: var(--foot-h); border-top: 1px solid #23263a; color: #6b7190; justify-content: space-between; }
+.site-head a, .site-foot a { color: inherit; text-decoration: none; }
+.site-head a:hover, .site-foot a:hover { color: #fff; }
+.site-brand { display: flex; align-items: center; gap: 10px; color: #fff !important; font-size: 13px; letter-spacing: 0.02em; white-space: nowrap; }
+.site-brand svg { width: 22px; height: 22px; image-rendering: pixelated; shape-rendering: crispEdges; }
+.site-brand small { color: #6b7190; font-size: 12px; }
+.site-nav { display: flex; align-items: center; gap: 18px; margin-left: auto; white-space: nowrap; }
+.site-star { display: inline-flex; align-items: stretch; border: 1px solid #23263a; background: #0b0d14; color: #c9cde0 !important; }
+.site-star:hover { border-color: #ffc874; }
+.site-star span { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; }
+.site-star b { font-weight: normal; color: #ffc874; }
+.site-star .count { border-left: 1px solid #23263a; color: #fff; font-variant-numeric: tabular-nums; }
+.site-star .count:empty { display: none; }
+.site-foot .row { display: flex; gap: 16px; white-space: nowrap; overflow: hidden; }
+.site-foot .dim { color: #4b5068; }
+@media (max-width: 900px) { .site-foot .also { display: none; } }
+@media (max-width: 640px) {
+  .with-chrome { --head-h: 46px; --foot-h: 0px; }
+  .site-foot, .site-nav .wide, .site-brand small { display: none; }
+}
 @media (max-width: 640px) {
   .hud { top: auto; bottom: 0; left: 0; width: 100vw; max-height: 58dvh; border-width: 1px 0 0; font-size: 14px; padding-bottom: env(safe-area-inset-bottom); }
   .hud-head { padding: 13px 14px; }
@@ -88,6 +117,56 @@ const el = (tag, cls, text) => {
 };
 const fmtCount = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? Math.round(n / 1e3) + "k" : String(n));
 
+// ---- site header and footer ------------------------------------------------
+const REPO = "cobanov/pixelart-gaussiansplat";
+const GH = `https://github.com/${REPO}`;
+// the brand mark: one splat as a pixel-art disc with a highlight and an outline
+const LOGO = (() => {
+  const rows = ["..oooo..", ".oyyyao.", "oyywyaao", "oyyyyaao", "oayyaaao", "oaaaaaro", ".oaarro.", "..oooo.."];
+  const col = { o: "#2a2444", y: "#ffd76a", w: "#fff3c8", a: "#ff9a3a", r: "#c23c36" };
+  const rects = rows.flatMap((r, y) => [...r].map((ch, x) => (col[ch] ? `<rect x="${x}" y="${y}" width="1" height="1" fill="${col[ch]}"/>` : ""))).join("");
+  return `<svg viewBox="0 0 8 8" aria-hidden="true">${rects}</svg>`;
+})();
+const fmtStars = (n) => (n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k" : String(n));
+
+function createChrome() {
+  if (document.querySelector(".site-head")) return;
+  const head = el("header", "site-head");
+  head.innerHTML = `
+    <a class="site-brand" href="/">${LOGO}<span>pixel-art splats</span><small>Gaussian splats as pixel art</small></a>
+    <nav class="site-nav" aria-label="Site">
+      <a class="wide" href="${GH}/blob/main/docs/how-it-works.md">How it works</a>
+      <a class="wide" href="${GH}/blob/main/docs/make-a-scene.md">Make your own</a>
+      <a class="site-star" href="${GH}" aria-label="Star on GitHub"><span><b>★</b> Star</span><span class="count"></span></a>
+    </nav>`;
+  const foot = el("footer", "site-foot");
+  foot.innerHTML = `
+    <div class="row">
+      <span>Made by <a href="https://cobanov.dev">Mert Cobanov</a></span>
+      <span class="dim">Open source, MIT</span>
+      <span class="dim">Built on <a href="https://github.com/sparkjsdev/spark">Spark</a> and <a href="https://threejs.org">three.js</a></span>
+    </div>
+    <div class="row also">
+      <span class="dim">Also by me</span>
+      <a href="https://runyard.cobanov.dev">runyard</a>
+      <a href="https://checkmark.cobanov.dev">checkmark</a>
+      <a href="https://clockmark.cobanov.dev">clockmark</a>
+      <a href="https://bucketmark.app">bucketmark</a>
+    </div>`;
+  document.body.append(head, foot);
+  document.documentElement.classList.add("with-chrome");
+  window.dispatchEvent(new Event("resize")); // the drawing area just got smaller
+
+  // star count, cached for the session (the GitHub API allows 60 calls an hour per visitor)
+  const count = head.querySelector(".count"), key = "splats-stars";
+  const show = (n) => { if (Number.isFinite(n)) count.textContent = fmtStars(n); };
+  const cached = sessionStorage.getItem(key);
+  if (cached) show(Number(cached));
+  else fetch(`https://api.github.com/repos/${REPO}`).then((r) => (r.ok ? r.json() : null)).then((d) => {
+    if (d && Number.isFinite(d.stargazers_count)) { sessionStorage.setItem(key, d.stargazers_count); show(d.stargazers_count); }
+  }).catch(() => {});
+}
+
 export function showLoading(text) {
   const d = el("div", "hud-load", text);
   document.body.appendChild(d);
@@ -99,9 +178,10 @@ export function createHud({ current, controls = [], hint = "drag: orbit · scrol
   const api = { set() {}, count() {}, el: null };
   if (new URLSearchParams(location.search).has("capture")) return api;
 
+  createChrome();
   const root = el("div", "hud");
   const head = el("div", "hud-head");
-  head.append(el("span", "hud-title", "pixel-art splats"), el("span", "hud-fold", "–"));
+  head.append(el("span", "hud-title", "scenes & look"), el("span", "hud-fold", "–"));
   const body = el("div", "hud-body");
   const stats = el("div", "hud-stats", "…");
   root.append(head, body, stats);
@@ -269,10 +349,18 @@ export function commonControls({ state, post, spark, resize, canvas }) {
     view: [
       { kind: "toggle", id: "quant", label: "palette", key: "q", value: state.quant, onChange: (v) => (state.quant = v) },
       { kind: "toggle", id: "crisp", label: "hard pixels", key: "x", value: state.crisp, onChange: (v) => { state.crisp = v; applyCrisp(spark, post, v); } },
+      { kind: "toggle", id: "ss", label: "2×2 supersample", key: "s", value: state.ss === 2, onChange: (v) => { state.ss = v ? 2 : 1; resize(); } },
+      { kind: "toggle", id: "outline", label: "outline", key: "e", value: !!state.outline, onChange: (v) => { state.outline = v; post.setOutline(v); } },
       { kind: "toggle", id: "orbit", label: "auto orbit", key: "o", value: state.idle, onChange: (v) => (state.idle = v) },
     ],
     record: { kind: "button", id: "rec", label: "record", key: "r", onClick: makeRecorder(canvas) },
   };
+}
+
+// The drawing area: the window minus the site header and footer.
+export function viewportSize() {
+  const css = getComputedStyle(document.documentElement), px = (v) => parseFloat(css.getPropertyValue(v)) || 0;
+  return { w: window.innerWidth, h: Math.max(1, window.innerHeight - px("--head-h") - px("--foot-h")) };
 }
 
 // Default art-pixel size: 5 CSS px on a desktop window, proportionally smaller

@@ -177,7 +177,9 @@ export function deadTree(c, mat, x, z, hgt, lean = 0.2) {
 // Sample a finished scene into painted surfels.
 //   tint: optional average colour the ground should lean towards
 //   shadowR: radius of the soft contact shadow at the centre (0 = none)
-export function bake(c, t, { tint = null, shadowR = 0, h = 0.0215, ext = c.R + 0.75, bottom = -0.3 - c.R * 1.25 } = {}) {
+//   lighting: from makeLighting (light.js): bake sun, shadows and lamps into
+//             each surfel and store its final palette colour (scenes)
+export function bake(c, t, { tint = null, shadowR = 0, h = 0.0215, ext = c.R + 0.75, bottom = -0.3 - c.R * 1.25, lighting = null } = {}) {
   const surf = sampleSurface(c.s, [-ext, bottom, -ext], [ext, c.top + 0.15, ext], h);
   const count = surf.mat.length;
   const col = new Uint8Array(count * 4);
@@ -186,13 +188,14 @@ export function bake(c, t, { tint = null, shadowR = 0, h = 0.0215, ext = c.R + 0
   for (let i = 0; i < count; i++) {
     const x = surf.p[i * 3], y = surf.p[i * 3 + 1], z = surf.p[i * 3 + 2];
     const n = [surf.n[i * 3], surf.n[i * 3 + 1], surf.n[i * 3 + 2]];
-    let { c: k, emissive } = t.paint(surf.mat[i], x, y, z, n);
+    let { c: k, emissive, leaf } = t.paint(surf.mat[i], x, y, z, n);
     if (!emissive) {
       if (lean) k = mix(k, [k[0] * lean[0] * 2, k[1] * lean[1] * 2, k[2] * lean[2] * 2], 0.2);
-      k = mul(k, 0.5 + 0.5 * surf.ao[i]);
+      if (!lighting) k = mul(k, 0.5 + 0.5 * surf.ao[i]);
       // darker towards the bottom of the island, soft contact shadow on top
       if (y < -0.2 && !t.noDepthShade) k = mul(k, 1 - 0.45 * sstep(-0.2, -c.R, y));
-      if (shadowR && n[1] > 0.3 && y < 0.08 && y > -0.1) k = mul(k, 1 - 0.36 * Math.exp(-(x * x + z * z) / (0.4 * shadowR * shadowR)));
+      if (shadowR && !lighting && n[1] > 0.3 && y < 0.08 && y > -0.1) k = mul(k, 1 - 0.36 * Math.exp(-(x * x + z * z) / (0.4 * shadowR * shadowR)));
+      if (lighting) k = lighting.shade(k, x, y, z, n[0], n[1], n[2], { ao: surf.ao[i], leaf });
     }
     col[i * 4] = Math.max(0, Math.min(255, k[0] * 255));
     col[i * 4 + 1] = Math.max(0, Math.min(255, k[1] * 255));

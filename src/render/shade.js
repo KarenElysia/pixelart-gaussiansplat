@@ -35,9 +35,17 @@ const pointLight = (position, colour) => `{
           col += (albedo * 0.85 + 0.1) * ${colour} * w;
         }`;
 
+// on baked colours, a lamp only adds a little live light on top (its flicker)
+const livePointLight = (position, colour) => `{
+          vec3 toLight = ${position} - p; float d = length(toLight);
+          col += albedo * ${colour} * (max(dot(n, toLight / d), 0.0) * 0.8 + 0.2) / (1.0 + d * d * 12.0);
+        }`;
+
 // world:    the splat belongs to the island / scene, not to the model
 // upNormal: light it as if it faced up (grass blades, leaflets)
-export function shadeFx({ world = false, upNormal = false } = {}) {
+// baked:    the colour already holds its light (scenes, see authoring/light.js);
+//           only live lamp flicker and fog are added
+export function shadeFx({ world = false, upNormal = false, baked = false } = {}) {
   const u = uniforms;
   const inputs = { cam: u.camera, fog: u.fog, cull: u.cull, bands: u.bands, exposure: world ? u.worldExposure : u.exposure };
   const inTypes = { gsplat: dyno.Gsplat, cam: "vec3", fog: "vec2", cull: "float", bands: "float", exposure: "float" };
@@ -73,6 +81,8 @@ export function shadeFx({ world = false, upNormal = false } = {}) {
         col *= mix(vec3(0.92, 0.95, 1.05), vec3(1.04, 1.0, 0.95), step(0.0, ndl)); // cool shadows, warm light
         ${u.lights.map((_, k) => pointLight(i[`l${k}`], i[`c${k}`])).join("\n        ")}
 
+        ${baked ? `col = albedo * ${i.exposure};
+        { vec3 albedo = col * 0.4; ${u.lights.map((_, k) => livePointLight(i[`l${k}`], i[`c${k}`])).join(" ")} }` : ""}
         if (emissive) col = albedo * 1.15;
         else col = mix(col, vec3(0.03, 0.035, 0.05), 0.75 * smoothstep(${i.fog}.x, ${i.fog}.y, dist));
         ${o.gsplat}.rgba = vec4(clamp(col, 0.0, 1.0), alpha);

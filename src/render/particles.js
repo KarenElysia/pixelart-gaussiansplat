@@ -50,6 +50,9 @@ const MOTION = {
     p.y += 0.04 * sin(${t} * 0.3 + r.z * 30.0); a *= 0.55 + 0.45 * sin(${t} * 0.25 + r.z * 50.0);`,
   // light falling in from above
   shaft: (g, t) => `p.x += 0.08 * sin(${t} * 0.15 + r.x * 20.0); a *= 0.5 + 0.5 * sin(${t} * 0.4 + r.y * 50.0);`,
+  // sun shafts (scene-kit shafts()): a slow sideways drift, gently brightening and fading
+  ray: (g, t) => `p.x += 0.025 * sin(${t} * 0.21 + r.x * 6.0); p.z += 0.02 * cos(${t} * 0.17 + r.x * 6.0);
+    a *= 0.8 + 0.2 * sin(${t} * 0.5 + r.y * 50.0);`,
   // grass and leaves in a light wind
   sway: (g, t) => `p.x += 0.016 * sin(${t} * 1.6 + p.x * 5.0 + p.z * 3.0); p.z += 0.011 * cos(${t} * 1.3 + p.z * 4.0 - p.x * 2.0);`,
   // halos breathing with their flame

@@ -37,12 +37,12 @@ export function build(rnd) {
   free.dots(40, () => true, { colors: [rgb("#fff1c0"), rgb("#c8372d")], r: 1.2, y: [0.12, 0.22] });
 
   // 5. Colours. Called once per surfel with its material, position and normal.
-  //    Use colours from the palette below; lighting and dithering do the rest.
+  //    Use colours from the palette below; lighting and palette snapping do the rest.
   const paint = (m, x, y, z, n) => {
     if (m === M.lamp) return { c: rgb("#ffcf5a"), emissive: true };
     if (m === M.post) return { c: rgb("#2b2740") };
     if (m === M.trunk) return { c: mul(rgb("#4a2a26"), 0.85 + 0.3 * vnoise3(x * 30, y * 5, z * 30)) };
-    if (m === M.leaves) return { c: vnoise3(x * 12, y * 12, z * 12) > 0.55 ? rgb("#a8d860") : rgb("#4f9a4a") };
+    if (m === M.leaves) return { c: vnoise3(x * 12, y * 12, z * 12) > 0.55 ? rgb("#a8d860") : rgb("#4f9a4a"), leaf: true };
     if (m === M.rock) return { c: mul(rgb("#807e92"), 0.8 + 0.4 * vnoise3(x * 8, y * 10, z * 8)) };
     return { c: n[1] < 0.5 ? rgb("#4a2a26") : mix(rgb("#1f4a38"), rgb("#4f9a4a"), sstep(0.3, 0.7, vnoise3(x * 4, 2, z * 4))) };
   };
@@ -51,6 +51,7 @@ export function build(rnd) {
     c, paint, lights, free: free.list,
     // the whole picture is drawn with these colours
     palette: ["#0a0a18", "#17152c", "#2b2740", "#4c4a60", "#807e92", "#4a2a26", "#1f4a38", "#4f9a4a", "#a8d860", "#c8372d", "#ffcf5a", "#fff1c0"],
+    glowPalette: ["#4e3f3a", "#8a7356"], // muted warm light, only for beams and glows
     background: "#0a0a18",
     particles: [{ mode: "blink", n: 18, halo: true, colors: ["#ffcf5a", "#fff1c0"], center: [0, 0.3, 0], spread: [1.1, 0.5, 1.1] }],
   };

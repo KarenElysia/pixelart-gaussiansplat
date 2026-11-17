@@ -1,6 +1,6 @@
 # pixelart-gaussiansplat
 
-Pixel-art Gaussian splats in the browser. Real 3D you can orbit, drawn as crisp pixel art with a small palette and ordered dithering.
+Pixel-art Gaussian splats in the browser. Real 3D you can orbit, drawn as crisp pixel art with a small palette and dark outlines.
 
 ![A caravan camp on a floating island, rendered as pixel-art splats](docs/images/caravan.gif)
 
@@ -25,7 +25,7 @@ npm install
 npm run dev
 ```
 
-Open the address Vite prints. Drag to orbit, scroll to zoom. The panel on the left switches examples and changes the look (pixel size, dither, palette on/off).
+Open the address Vite prints. Drag to orbit, scroll to zoom. The panel on the left switches examples and changes the look (pixel size, dither, palette, supersampling, outlines).
 
 Requires Node 20.19 or newer (22.12 or newer on the 22 line) and a browser with WebGL 2.
 
@@ -35,10 +35,13 @@ The splats are ordinary Gaussian splats; the pixel art comes from how they are d
 
 ![Four stages: soft splats, hard low-res discs, palette, dithering](docs/images/pipeline.png)
 
-1. **Splats as surfels** (top left). Every splat is a flat disc lying on a surface. Its rotation stores the surface normal, so each splat can be lit on the GPU every frame.
-2. **Small and hard** (top right). The scene is drawn into a low-resolution target, with the Gaussian falloff switched off. Each splat is a solid disc, and a pixel is either an object or the background, never a blend.
-3. **A palette** (bottom left). Each pixel snaps to a palette of about 15 colours.
-4. **Dithering** (bottom right). Instead of snapping to the nearest colour, each pixel picks between the two nearest colours using an ordered pattern. Smooth shading turns into dither.
+1. **Splats as surfels** (top left). Every splat is a flat disc lying on a surface. Its rotation stores the surface normal.
+2. **Light baked into scenes.** A scene does not move, so its light is worked out once per splat at build time: soft sun shadows marched through the distance field, lamps that only light what they can see, leaves that let light through. The colour is then picked from the palette within the surface's own hue, with cool shadows and warm light. Converted models, which move, are lit on the GPU every frame.
+3. **Small and hard** (top right). The scene is drawn at twice the art resolution, with the Gaussian falloff switched off. Each 2×2 block becomes one art pixel: object or background, by coverage.
+4. **A palette by vote** (bottom left). Each sample snaps to its nearest palette colour and the pixel takes the one most samples chose, so no pixel is an average of two materials.
+5. **Outlines and light.** A pixel on the silhouette takes a darker shade of its own colour. Translucent light (sun shafts, halos, smoke) is blended over the background and snapped to the palette in its own hue, so a beam is a flat band of muted colour.
+
+Ordered dithering (bottom right) is still there, on the `dither` slider, but off by default.
 
 The pixel grid is fixed to the screen, so zooming never changes the size of a pixel.
 

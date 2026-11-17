@@ -16,6 +16,22 @@ Where they come from:
 
 ## 2. Lighting each splat
 
+### Scenes: baked
+
+[`src/authoring/light.js`](../src/authoring/light.js), called from [`tools/build-scene.mjs`](../tools/build-scene.mjs)
+
+A scene never moves, so the build works out each splat's light once and stores the final palette colour. Per splat:
+
+1. **Sun.** Diffuse light from the key direction, times a soft shadow: a ray marched towards the sun through the scene's distance field, darker the closer it passes to something.
+2. **Sky.** More light on surfaces facing up, less facing down, scaled by the occlusion the sampler measured.
+3. **Leaves** (`leaf: true` from `paint`, and every swaying blade or leaflet) are lit from both sides and only half shadowed, so a canopy glows instead of turning into a dark ball.
+4. **Lamps.** Fires and lanterns light what they can see (another marched ray), and their warm light may pull a colour into their own hue: orange on stone.
+5. **Colour ramps.** The lit colour is matched to the palette in OKLab, with a penalty for leaving the surface's own hue. A shaded orange becomes a darker orange or a red, never a green that happens to be close. Shadows lean cool and light warm before matching. Grey and white surfaces have no hue to keep, so they shade into the palette's cool greys; very dark tones may go navy.
+
+In the viewer only a little live lamp light (the flicker) and fog are added on top.
+
+### Models: every frame
+
 [`src/render/shade.js`](../src/render/shade.js)
 
 Spark lets you attach a small shader, a *modifier*, that runs for every splat before it is drawn. The lighting modifier:
@@ -35,15 +51,19 @@ A few flags (emissive, two-sided) are packed into the opacity channel. Hard-edge
 
 ![Four stages](images/pipeline.png)
 
-**Low resolution.** The splats are drawn into a small render target. With a pixel size of 4, a 1600×900 window renders at 400×225. A full-screen pass then reads it with nearest sampling, so one texel becomes one square on screen. The grid belongs to the screen, not the scene: zooming changes what is in each pixel, never how big a pixel is.
+**Low resolution, supersampled.** With a pixel size of 4, a 1600×900 window has 400×225 art pixels, and the splats are drawn at twice that (800×450), so each art pixel has four samples. A full-screen pass turns each 2×2 block into one art pixel and draws it as a square with nearest sampling. The grid belongs to the screen, not the scene: zooming changes what is in each pixel, never how big a pixel is. `&ss=0` draws one sample per pixel.
 
 **Hard splats.** Normally a splat fades out towards its edge and blends with what is behind it. That blending is what makes splats look soft, and after palette snapping it reads as noise. So the falloff is switched off (`falloff: 0`) and each splat is a solid disc.
 
-**Alpha test, not alpha blend.** A pixel is either the object's colour or the background. The decision is made against a 4×4 Bayer pattern, which has two effects: silhouettes are hard, and anything deliberately translucent (a glow, smoke, a light beam) turns into a dot pattern whose density follows its opacity.
+**Coverage.** A sample is solid when an opaque splat covers it. An art pixel with at least two solid samples out of four is the object; otherwise it is background.
 
-**Palette.** Every pixel is matched to a short list of colours. Scenes carry their own palette of about 15 colours. For a converted model, [`src/viewer/palette.js`](../src/viewer/palette.js) derives one with k-means over the model's colours at the brightness levels the lighting produces.
+**Palette by vote.** Each solid sample snaps to its nearest palette colour, and the pixel takes the colour most of them chose. A pixel on the border of two materials gets one of them, never their average snapped to some third colour. Solid pixels never take the background colour.
 
-**Dithering.** With the `dither` control at 0, a pixel takes the nearest palette colour. Above 0, the pass finds the *two* nearest colours, measures where the pixel sits between them, and picks one or the other using the Bayer pattern in that proportion. A smooth gradient between two palette colours becomes a checkerboard that thins out towards each end.
+**Outlines.** A solid pixel with the background on one to three sides takes an "ink" of its own colour: darker, but lifted to a minimum brightness so it still shows against a near-black background. Isolated dots (embers) keep their colour. `&outline=0` turns it off.
+
+**Translucent light.** Halos, smoke, the lighthouse beam and sun shafts are blended over the background, and the blend is matched to the palette in OKLab while keeping the light's hue, so a faint gold beam becomes a muted gold band rather than a grey that happens to be close. Below about 30% opacity it is left out. A scene can list `glowPalette` colours that only this light may use, so muted beam colours never leak onto surfaces.
+
+**Dithering.** Off by default. Above 0, the pass averages the samples, finds the *two* nearest palette colours, and picks one or the other with a 4×4 Bayer pattern in proportion to where the colour sits between them.
 
 ## 4. Scenes
 
@@ -53,6 +73,7 @@ A scene has three kinds of content.
 
 - **Surfels from shapes.** The island, buildings and trees are signed-distance shapes (spheres, boxes, cones, combinations of them). Each has a material number, and a `paint` function turns material, position and normal into a colour: stripes on a tent, joints between flagstones, moss on anything facing up.
 - **Free splats.** Some things are easier to place one splat at a time. A grass blade is a single splat stretched along the blade. A fallen leaf is one flattened splat. A glow is three nested translucent splats, which the alpha test turns into a halo of dots.
+- **Sun shafts.** `shafts()` in [`scene-kit.js`](../src/authoring/scene-kit.js) lays rows of long, faint splats along the sun's direction, scattered sideways so each beam has streaks. Where they overlap, they pass the pass's opacity threshold and show as thin bands (the shrine has four).
 - **Particles.** Embers, fireflies, falling leaves, smoke. Each kind is a few lines of GLSL in [`src/render/particles.js`](../src/render/particles.js) that move a splat from its index and the time, so nothing is animated in JavaScript.
 
 Building takes a few seconds, which is why scenes are baked to a file (`.dio`) instead of being built in the browser.

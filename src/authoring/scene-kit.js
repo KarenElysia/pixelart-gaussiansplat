@@ -6,6 +6,7 @@
 
 import { sphere, cone, box, cyl } from "./sdf.js";
 import { rgb, TAU } from "./island.js";
+import { SUN } from "./light.js";
 
 export const KIND = { lit: 0, emissive: 1, sway: 2, glow: 3 };
 export const UP = [0, 1, 0];
@@ -94,3 +95,24 @@ export const stoneLantern = (c, M, x, z, lights, free) => {
   free.glow(x, y + 0.45, z, 0.26, rgb("#ffcf5a"));
   c.grow(y + 0.75);
 };
+
+// Light shafts: beams of sunlight in the air, as a particle entry for a scene.
+// Each beam is a row of long, faint, translucent splats laid end to end along
+// the sun's direction, scattered a little sideways so the beam has streaks.
+// The pixel pass blends them over what is behind and snaps the result to the
+// palette, so a beam reads as a flat band of muted colour.
+//   beams: [{ to: [x, y, z] where it lands, len, r (half width) }]
+export function shafts(rnd, beams, { colors, alpha = 0.3, n = 14 } = {}) {
+  const dir = [-SUN[0], -SUN[1], -SUN[2]], q = quatFromTo(UP, dir);
+  const side = norm([-dir[2], 0, dir[0]]); // across the beam, horizontal
+  const splats = [];
+  for (const b of beams) {
+    const len = b.len ?? 2.2, r = b.r ?? 0.14;
+    for (let k = 0; k < n; k++) {
+      const u = (k + 0.5) / n, w = (rnd() - 0.5) * r * 1.6, t = len * (1 - u), thick = (r * (0.3 + 0.4 * rnd())) / 1.5;
+      splats.push([b.to[0] - dir[0] * t + side[0] * w, b.to[1] - dir[1] * t + side[1] * w, b.to[2] - dir[2] * t + side[2] * w,
+        thick, (len / n) * 1.1, thick, alpha * (0.45 + 0.55 * u), ...q]);
+    }
+  }
+  return { mode: "ray", colors, center: [0, 0, 0], splats };
+}

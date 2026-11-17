@@ -48,7 +48,7 @@ export async function loadWorld(name, groundY = 0) {
       color.setRGB(rgba[i * 4] / 255, rgba[i * 4 + 1] / 255, rgba[i * 4 + 2] / 255);
       splats.pushSplat(p, scale, q, nor[i * 4 + 3] ? 0.9 : 1, color);
     }
-  }, (mesh) => (mesh.worldModifier = shadeFx({ world: true })));
+  }, (mesh) => (mesh.worldModifier = shadeFx({ world: true, baked: !!meta.baked })));
 
   // 2. free splats, grouped by how they are drawn
   const freeGroup = (kinds, setup) => add((splats) => {
@@ -63,19 +63,19 @@ export async function loadWorld(name, groundY = 0) {
     }
   }, setup);
   if (nFree) {
-    freeGroup([KIND.lit, KIND.emissive], (m) => (m.worldModifier = shadeFx({ world: true })));
-    freeGroup([KIND.sway], (m) => { m.worldModifier = shadeFx({ world: true, upNormal: true }); m.objectModifier = motionFx("sway"); });
+    freeGroup([KIND.lit, KIND.emissive], (m) => (m.worldModifier = shadeFx({ world: true, baked: !!meta.baked })));
+    freeGroup([KIND.sway], (m) => { m.worldModifier = shadeFx({ world: true, upNormal: true, baked: !!meta.baked }); m.objectModifier = motionFx("sway"); });
     freeGroup([KIND.glow], (m) => (m.objectModifier = motionFx("pulse"))); // halos keep their own colour and opacity
   }
 
   // 3. particles
   let seed = 99;
   const rnd = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
-  const tilt = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -0.3));
+  const tilt = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -0.3)), rot = new THREE.Quaternion();
   const particleColors = [];
   for (const ps of meta.particles) {
     const mode = ps.still ? "twinkle" : ps.mode, c = ps.center || [0, 0, 0];
-    if (mode !== "fog" && mode !== "shaft") particleColors.push(...ps.colors);
+    if (mode !== "fog" && mode !== "shaft" && mode !== "ray") particleColors.push(...ps.colors);
     add((splats) => {
       const put = (x, y, z, sx, sy, sz, alpha, rot) => {
         p.set(x, y + groundY, z);
@@ -83,7 +83,7 @@ export async function loadWorld(name, groundY = 0) {
         splats.pushSplat(p, v.set(sx, sy, sz), rot || q.identity(), alpha, color);
       };
       // explicit shapes, relative to the centre (the lighthouse beam)
-      if (ps.splats) return ps.splats.forEach((b) => put(c[0] + b[0], c[1] + b[1], c[2] + b[2], b[3], b[4], b[5], b[6]));
+      if (ps.splats) return ps.splats.forEach((b) => put(c[0] + b[0], c[1] + b[1], c[2] + b[2], b[3], b[4], b[5], b[6], b.length > 7 ? rot.set(b[7], b[8], b[9], b[10]) : null));
       const spots = ps.points || (ps.origins ? ps.origins.flatMap((o) => Array.from({ length: ps.n }, () => o)) : Array.from({ length: ps.n }, () => {
         if (ps.spread) return [c[0] + (rnd() - 0.5) * 2 * ps.spread[0], c[1] + rnd() * ps.spread[1], c[2] + (rnd() - 0.5) * 2 * ps.spread[2]];
         const a = rnd() * 6.28, r = Math.sqrt(rnd()) * meta.R * (mode === "shaft" ? 0.7 : 1);
@@ -95,7 +95,7 @@ export async function loadWorld(name, groundY = 0) {
         else {
           const k = meta.h * (mode === "smoke" ? 0.9 : mode === "leaf" ? 0.5 : 0.28 + rnd() * 0.14);
           put(o[0], o[1], o[2], k, mode === "leaf" ? k * 0.6 : k, k, ps.alpha ?? 0.95);
-          if (ps.halo) put(o[0], o[1], o[2], k * 5.5, k * 5.5, k * 5.5, 0.24);
+          if (ps.halo) put(o[0], o[1], o[2], k * 5.5, k * 5.5, k * 5.5, 0.18);
         }
       }
     }, (mesh) => (mesh.objectModifier = motionFx(mode, new THREE.Vector3(meta.R, ps.spread ? ps.spread[1] : ps.height || 0.6, 0), new THREE.Vector3(c[0], c[1] + groundY, c[2]), !!ps.halo)));
